@@ -1,12 +1,46 @@
 # Contributing to SoroCrew Studio
 
-Thank you for your interest in contributing to **SoroCrew Studio**! SoroCrew participates in **Drips Waves** (drips.network) to fund and reward open-source contributors.
+Thank you for your interest in contributing to **SoroCrew Studio**! SoroCrew participates in **Drips Waves** (drips.network) to fund open-source contributors.
+
+---
+
+## 🌿 Branching & Pull Request Workflow
+
+### Default Branch: `dev`
+All active development happens on the `dev` branch. The `main` branch is reserved for stable, production-ready releases only.
+
+### How to Contribute
+1. **Fork** the repository (external contributors) or create a branch (team members).
+2. **Branch off `dev`**:
+   ```bash
+   git checkout dev
+   git pull origin dev
+   git checkout -b feature/your-feature-name
+   ```
+3. **Make your changes**, commit using [Conventional Commits](https://www.conventionalcommits.org/).
+4. **Push to your fork/branch** and open a Pull Request **targeting `dev`**.
+5. **Wait for CI checks** to pass (automated via GitHub Actions).
+6. **Address review feedback** if requested.
+7. **Merge** after approval (maintainers only).
+
+### Branch Protection Rules
+- ❌ Direct pushes to `main` are **not allowed**.
+- ❌ Direct pushes to `dev` are **not allowed**.
+- ✅ All changes must go through a Pull Request.
+- ✅ CI status checks must pass before merging.
+- ✅ At least 1 maintainer approval is required.
+
+### Branch Naming Convention
+- `feature/` — New features
+- `fix/` — Bug fixes
+- `docs/` — Documentation changes
+- `test/` — Test additions/modifications
+- `refactor/` — Code refactoring
+- `chore/` — Maintenance tasks
 
 ---
 
 ## 🗺️ SoroCrew Repository Ecosystem Map
-
-If you're wondering which repository to work on:
 
 | Repository | Focus Area | Technology |
 | :--- | :--- | :--- |
@@ -19,38 +53,8 @@ If you're wondering which repository to work on:
 
 ## 🌊 Drips Wave Contributor Workflow
 
-If you are contributing via a **Drips Wave** (drips.network):
-
-1. **Find an Issue:** Browse open issues tagged with `drips-wave` or `good first issue` on GitHub or the Drips Wave dashboard.
-2. **Apply on Drips:** Click **Apply** on the issue in Drips Wave. Please do NOT start working until a maintainer assigns you to the issue.
-3. **Get Assigned:** A maintainer will review applications and assign the issue on GitHub & Drips.
-4. **Create a Branch:** Create a branch named `feat/short-description` or `fix/short-description`.
-5. **Submit a PR:** Open a Pull Request referencing the issue number (e.g. `Fixes #12`).
-6. **Review & Merge:** Once reviewed and merged, mark the task as complete in the Wave to receive your payout at the end of the wave cycle!
-
----
-
-## 💻 Local Setup & Testing
-
-```bash
-git clone git@github.com:sorocrew/studio.git
-cd studio
-
-# Install dependencies
-npm install
-
-# Run typecheck & build test
-npm run typecheck
-npm run build
-
-# Start local development server
-npm run dev
-```
-
----
-
-## 📜 Pull Request Guidelines
-
-* Keep PRs focused on a single issue.
-* Ensure `npm run typecheck` passes with zero errors before submitting.
-* Write clear PR descriptions using the provided PR template.
+1. **Find an Issue:** Browse open issues tagged with `drips-wave` on GitHub or Drips.
+2. **Apply on Drips:** Click **Apply** on Drips Wave. Do NOT start until assigned.
+3. **Get Assigned:** Maintainers review and assign the issue.
+4. **Submit PR targeting `dev`:** Open a PR targeting `dev` referencing the issue number.
+5. **Review & Payout:** After PR merge, receive your payout at the end of the wave cycle!

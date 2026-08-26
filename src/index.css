@@ -1,0 +1,38 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer utilities {
+  .neo-box {
+    @apply border-2 border-black bg-white shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] rounded-lg;
+  }
+  .neo-box-sm {
+    @apply border-2 border-black bg-white shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] rounded;
+  }
+  .neo-btn {
+    @apply border-2 border-black bg-white shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] active:translate-x-[3px] active:translate-y-[3px] active:shadow-none transition-all font-bold px-4 py-2 rounded-lg flex items-center gap-2 text-sm cursor-pointer;
+  }
+  .neo-btn-blue {
+    @apply bg-blue-600 text-white border-2 border-black shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] hover:bg-blue-700 hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] active:translate-x-[3px] active:translate-y-[3px] active:shadow-none transition-all font-bold px-4 py-2 rounded-lg flex items-center gap-2 text-sm cursor-pointer;
+  }
+  .neo-badge {
+    @apply border-2 border-black bg-white px-2.5 py-0.5 text-xs font-extrabold rounded-md shadow-[2px_2px_0px_0px_rgba(0,0,0,1)];
+  }
+  .neo-input {
+    @apply border-2 border-black bg-white px-3 py-2 text-sm font-semibold rounded-lg shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] focus:outline-none focus:ring-2 focus:ring-blue-600;
+  }
+}
+
+/* Custom Scrollbar for Neo-brutal Console */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #FAFAFA;
+  border-left: 2px solid #000;
+}
+::-webkit-scrollbar-thumb {
+  background: #000000;
+  border-radius: 0px;
+}

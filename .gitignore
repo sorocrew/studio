@@ -1,6 +1,19 @@
-node_modules
-dist
-dist-tauri
-target
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build outputs
+dist/
+dist-tauri/
+target/
+build/
+
+# IDE & OS
 .DS_Store
-*.local
+.vscode/
+.idea/
+*.log
+*.tmp
+.env
+.env.local
+.env.*.local

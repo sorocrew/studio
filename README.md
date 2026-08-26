@@ -1,4 +1,4 @@
-# SoroCrew Studio 🚀
+# SoroCrew Studio
 
 ![SoroCrew Studio Banner](./crew-logo-white.svg)
 
@@ -8,18 +8,18 @@ SoroCrew Studio brings IDE-grade developer experience straight to your browser-b
 
 ---
 
-## 🌟 Key Features
+## Key Features
 
-* ⚡ **Neo-Brutalist High-Contrast UI**: Modern black-on-white interface designed for ultra-clear visibility and focus.
-* 🌐 **Universal Network Toggler**: Switch instant browser context between **Mainnet**, **Testnet**, **Futurenet**, and **Local Quickstart Docker** (`http://localhost:8000`).
-* 📊 **Embedded Horizon Console**: Inspect network ledgers, block hashes, protocol versions, and transaction counts in real-time.
-* 🔍 **Soroban Event Streamer & XDR Inspector**: Live monitor contract topics/events and parse raw Base64 XDR payloads into JSON structs.
-* 💧 **1-Click Friendbot Faucet**: Instantly fund test keypairs with 10,000 test XLM on Testnet, Futurenet, or Localnet.
-* 🧪 **Contract Interactor**: Simulate Wasm contract invocations with JSON arguments and inspect CPU/memory footprint estimates.
+* **Neo-Brutalist High-Contrast UI**: Modern black-on-white interface designed for ultra-clear visibility and focus.
+* **Universal Network Toggler**: Switch instant browser context between **Mainnet**, **Testnet**, **Futurenet**, and **Local Quickstart Docker** (`http://localhost:8000`).
+* **Embedded Horizon Console**: Inspect network ledgers, block hashes, protocol versions, and transaction counts in real-time.
+* **Soroban Event Streamer & XDR Inspector**: Live monitor contract topics/events and parse raw Base64 XDR payloads into JSON structs.
+* **1-Click Friendbot Faucet**: Instantly fund test keypairs with 10,000 test XLM on Testnet, Futurenet, or Localnet.
+* **Contract Interactor**: Simulate Wasm contract invocations with JSON arguments and inspect CPU/memory footprint estimates.
 
 ---
 
-## 🛠️ Installation & Setup
+## Installation & Setup
 
 ### Prerequisites
 * Node.js v18+ 
@@ -48,7 +48,7 @@ npm run tauri build
 
 ---
 
-## 📁 Repository Structure
+## Repository Structure
 
 ```
 studio/
@@ -67,6 +67,6 @@ studio/
 
 ---
 
-## 📄 License
+## License
 
 MIT © [SoroCrew](https://github.com/sorocrew)

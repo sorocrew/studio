@@ -73,7 +73,7 @@ export const Header: React.FC<HeaderProps> = ({
                     : 'bg-white text-black hover:bg-slate-200 shadow-none'
                 }`}
               >
-                {net.isLocal ? '⚡ LOCAL' : net.name.toUpperCase()}
+                {net.isLocal ? 'LOCAL' : net.name.toUpperCase()}
               </button>
             );
           })}

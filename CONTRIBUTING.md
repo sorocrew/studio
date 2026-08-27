@@ -55,6 +55,7 @@ All active development happens on the `dev` branch. The `main` branch is reserve
 
 1. **Find an Issue:** Browse open issues tagged with `drips-wave` on GitHub or Drips.
 2. **Apply on Drips:** Click **Apply** on Drips Wave. Do NOT start until assigned.
-3. **Get Assigned:** Maintainers review and assign the issue.
-4. **Submit PR targeting `dev`:** Open a PR targeting `dev` referencing the issue number.
-5. **Review & Payout:** After PR merge, receive your payout at the end of the wave cycle!
+3. **Join Telegram Community:** Join [https://t.me/sorocrew](https://t.me/sorocrew) to coordinate with maintainers.
+4. **Get Assigned:** Maintainers review and assign the issue.
+5. **Submit PR targeting `dev`:** Open a PR targeting `dev` referencing the issue number and post your PR link in the Telegram `#PR Link` topic.
+6. **Review & Payout:** After PR merge, receive your payout at the end of the wave cycle!

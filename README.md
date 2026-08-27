@@ -19,6 +19,13 @@ SoroCrew Studio brings IDE-grade developer experience straight to your browser-b
 
 ---
 
+## Community & Support
+
+* **Telegram Community**: [https://t.me/sorocrew](https://t.me/sorocrew) (Announcements, PR Link reviews, and Drips Wave coordination)
+* **GitHub Organization**: [https://github.com/sorocrew](https://github.com/sorocrew)
+
+---
+
 ## Installation & Setup
 
 ### Prerequisites

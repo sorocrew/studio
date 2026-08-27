@@ -20,3 +20,8 @@ assignees: ''
 - [ ] Easy (1-2 days)
 - [ ] Medium (3-5 days)
 - [ ] Hard (1 week)
+
+---
+
+### 💬 Community & Coordination
+After applying for this issue on [Drips Wave](https://drips.network), join the **[SoroCrew Telegram Community](https://t.me/sorocrew)** to coordinate with maintainers and share your progress/PR in the `#PR Link` topic!

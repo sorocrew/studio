@@ -5,12 +5,22 @@ import { NetworkConfig, AccountInfo } from '../types';
 interface BrowserPanelProps {
   currentNetwork: NetworkConfig;
   activeAccount: AccountInfo;
+  initialUrl?: string;
+  launchKey?: number;
 }
 
-export const BrowserPanel: React.FC<BrowserPanelProps> = ({ currentNetwork, activeAccount }) => {
+export const BrowserPanel: React.FC<BrowserPanelProps> = ({ currentNetwork, activeAccount, initialUrl, launchKey }) => {
   const [url, setUrl] = useState<string>('http://localhost:3000');
   const [iframeUrl, setIframeUrl] = useState<string>('http://localhost:3000');
   const [key, setKey] = useState<number>(0);
+
+  React.useEffect(() => {
+    if (initialUrl) {
+      setUrl(initialUrl);
+      setIframeUrl(initialUrl);
+      setKey((prev) => prev + 1);
+    }
+  }, [initialUrl, launchKey]);
 
   const handleNavigate = (e: React.FormEvent) => {
     e.preventDefault();

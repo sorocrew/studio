@@ -4,6 +4,9 @@
 
 > **The Soroban dApp Developer Environment** — Built strictly for Web3 developers on the Stellar blockchain.
 
+* **Live Web App:** [https://crew-studio-six.vercel.app/](https://crew-studio-six.vercel.app/)
+* **Official Documentation:** [https://crew-crew-fc59.vercel.app/](https://crew-crew-fc59.vercel.app/)
+
 SoroCrew Studio brings IDE-grade developer experience straight to your browser-based dApp testing tab with zero context switching.
 
 ---

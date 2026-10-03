@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { NetworkConfig, HorizonLedger, SorobanEvent, DecodedXDR, ProviderLog } from '../types';
-import { fetchLatestLedgers, decodeXDRString } from '../services/stellar';
-import { Layers, Activity, FileCode, Play, Terminal, RefreshCw, Copy, Check, Search, ShieldCheck } from 'lucide-react';
+import { fetchLatestLedgers, decodeXDRString, fetchLiveSorobanEvents, simulateSorobanContract } from '../services/stellar';
+import { Layers, Activity, FileCode, Play, Terminal, RefreshCw, Copy, Check, Search, ArrowRight } from 'lucide-react';
 
 interface ConsolePanelProps {
   currentNetwork: NetworkConfig;
@@ -13,6 +13,10 @@ export const ConsolePanel: React.FC<ConsolePanelProps> = ({ currentNetwork, prov
   const [ledgers, setLedgers] = useState<HorizonLedger[]>([]);
   const [loadingLedgers, setLoadingLedgers] = useState<boolean>(false);
 
+  // Soroban Events State
+  const [events, setEvents] = useState<SorobanEvent[]>([]);
+  const [loadingEvents, setLoadingEvents] = useState<boolean>(false);
+
   // XDR Inspector State
   const [xdrInput, setXdrInput] = useState<string>(
     'AAAAAgAAAAA4... (Paste raw XDR payload string here)'
@@ -21,11 +25,13 @@ export const ConsolePanel: React.FC<ConsolePanelProps> = ({ currentNetwork, prov
   const [xdrError, setXdrError] = useState<string | null>(null);
 
   // Contract Interactor State
-  const [contractId, setContractId] = useState<string>('CCW67TSB5VXYF5MKG5UK5R6D3DH66M35N5SXVJYB3Y6L5F43Z2V');
+  // Real Soroban Testnet Native SAC (Stellar Asset Contract) address or test contract
+  const [contractId, setContractId] = useState<string>('CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC');
   const [functionName, setFunctionName] = useState<string>('balance');
   const [argsJson, setArgsJson] = useState<string>('["GBRPYHIL2CI3FNQ4BXLFMNDLFPPPU2HY44TOE355KCXAZUOWVYOO4ZF"]');
   const [contractResult, setContractResult] = useState<string | null>(null);
   const [invoking, setInvoking] = useState<boolean>(false);
+  const [lastSimulationXdr, setLastSimulationXdr] = useState<string | null>(null);
 
   // Copied feedback
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -37,10 +43,19 @@ export const ConsolePanel: React.FC<ConsolePanelProps> = ({ currentNetwork, prov
     setLoadingLedgers(false);
   };
 
+  const loadEvents = async () => {
+    setLoadingEvents(true);
+    const evts = await fetchLiveSorobanEvents(currentNetwork, 10);
+    setEvents(evts);
+    setLoadingEvents(false);
+  };
+
   useEffect(() => {
     loadLedgers();
+    loadEvents();
     const interval = setInterval(() => {
       loadLedgers();
+      loadEvents();
     }, 10000);
     return () => clearInterval(interval);
   }, [currentNetwork]);
@@ -56,27 +71,42 @@ export const ConsolePanel: React.FC<ConsolePanelProps> = ({ currentNetwork, prov
     }
   };
 
-  const handleInvokeContract = () => {
+  const handleInvokeContract = async () => {
     setInvoking(true);
     setContractResult(null);
-    setTimeout(() => {
-      setInvoking(false);
-      setContractResult(
-        JSON.stringify(
-          {
-            status: 'SUCCESS',
-            result: '10000000000',
-            contract: contractId,
-            function: functionName,
-            network: currentNetwork.name,
-            footprint: { readOnly: 2, readWrite: 0 },
-            cpuInstructions: 145020,
-          },
-          null,
-          2
-        )
-      );
-    }, 800);
+    setLastSimulationXdr(null);
+
+    let parsedArgs: any[] = [];
+    try {
+      parsedArgs = JSON.parse(argsJson);
+    } catch (parseErr) {
+      parsedArgs = [argsJson];
+    }
+
+    const sim = await simulateSorobanContract(
+      currentNetwork,
+      contractId.trim(),
+      functionName.trim(),
+      parsedArgs
+    );
+
+    setInvoking(false);
+    setContractResult(JSON.stringify(sim.data, null, 2));
+    if (sim.rawXdr) {
+      setLastSimulationXdr(sim.rawXdr);
+    }
+  };
+
+  const sendToXdrInspector = (xdrStr: string) => {
+    setXdrInput(xdrStr);
+    setActiveTab('xdr');
+    try {
+      const res = decodeXDRString(xdrStr);
+      setXdrResult(res);
+      setXdrError(null);
+    } catch (err: any) {
+      setXdrError(err.message || 'Failed to decode XDR');
+    }
   };
 
   const copyToClipboard = (text: string, id: string) => {
@@ -106,7 +136,7 @@ export const ConsolePanel: React.FC<ConsolePanelProps> = ({ currentNetwork, prov
           }`}
         >
           <Activity className="w-3.5 h-3.5" />
-          <span>SOROBAN EVENTS</span>
+          <span>SOROBAN EVENTS ({events.length})</span>
         </button>
 
         <button
@@ -126,7 +156,7 @@ export const ConsolePanel: React.FC<ConsolePanelProps> = ({ currentNetwork, prov
           }`}
         >
           <Play className="w-3.5 h-3.5" />
-          <span>CONTRACT INTERACTOR</span>
+          <span>CONTRACT SIMULATOR</span>
         </button>
 
         <button
@@ -192,29 +222,47 @@ export const ConsolePanel: React.FC<ConsolePanelProps> = ({ currentNetwork, prov
         {/* TAB 2: Soroban Events */}
         {activeTab === 'events' && (
           <div className="space-y-3 font-sans">
-            <div className="neo-box p-3 bg-blue-50 border-black">
-              <h4 className="font-extrabold text-black flex items-center gap-1.5 mb-1">
-                <Activity className="w-4 h-4 text-blue-600" />
-                <span>Soroban Live Event Streamer</span>
-              </h4>
-              <p className="text-xs text-slate-600">
-                Monitoring contract event topics & data payloads on <strong>{currentNetwork.name}</strong>.
-              </p>
+            <div className="neo-box p-3 bg-blue-50 border-black flex items-center justify-between">
+              <div>
+                <h4 className="font-extrabold text-black flex items-center gap-1.5 mb-1">
+                  <Activity className="w-4 h-4 text-blue-600" />
+                  <span>Live Soroban RPC Events ({currentNetwork.name})</span>
+                </h4>
+                <p className="text-xs text-slate-600 font-mono">
+                  RPC: {currentNetwork.sorobanRpcUrl}
+                </p>
+              </div>
+              <button
+                onClick={loadEvents}
+                disabled={loadingEvents}
+                className="neo-btn text-xs py-1 px-2.5"
+              >
+                <RefreshCw className={`w-3 h-3 ${loadingEvents ? 'animate-spin' : ''}`} />
+                <span>Poll RPC</span>
+              </button>
             </div>
 
-            <div className="space-y-2 font-mono">
-              <div className="neo-box p-3 border-black">
-                <div className="flex items-center justify-between text-xs font-bold mb-1 text-black">
-                  <span className="text-emerald-600">EVENT #49120</span>
-                  <span className="neo-badge bg-yellow-200">contract.transfer</span>
-                </div>
-                <div className="text-[11px] text-slate-700 space-y-1">
-                  <div>Contract: <code className="bg-slate-100 px-1 border border-black">CCW67TSB...F43Z2V</code></div>
-                  <div>Topic 0: <code className="bg-slate-100 px-1 border border-black">Symbol("transfer")</code></div>
-                  <div>Data: <code className="bg-slate-100 px-1 border border-black">ScVal::Map(from, to, amount)</code></div>
-                </div>
+            {events.length === 0 ? (
+              <div className="neo-box p-6 text-center text-slate-500 font-mono text-xs">
+                No recent contract events in range on {currentNetwork.name}.
               </div>
-            </div>
+            ) : (
+              <div className="space-y-2 font-mono">
+                {events.map((evt) => (
+                  <div key={evt.id} className="neo-box p-3 border-black">
+                    <div className="flex items-center justify-between text-xs font-bold mb-1 text-black">
+                      <span className="text-blue-600">Ledger #{evt.ledger}</span>
+                      <span className="neo-badge bg-yellow-200">{evt.type}</span>
+                    </div>
+                    <div className="text-[11px] text-slate-700 space-y-1">
+                      <div className="truncate">Contract: <code className="bg-slate-100 px-1 border border-black">{evt.contractId}</code></div>
+                      <div>Topics: <code className="bg-slate-100 px-1 border border-black">{evt.topics.join(' , ') || 'none'}</code></div>
+                      <div className="truncate">Data XDR: <code className="bg-slate-100 px-1 border border-black">{evt.data}</code></div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
@@ -241,7 +289,7 @@ export const ConsolePanel: React.FC<ConsolePanelProps> = ({ currentNetwork, prov
 
             {xdrError && (
               <div className="neo-box bg-red-100 border-red-950 p-3 text-red-900 font-mono text-xs">
-                ❌ {xdrError}
+                Error: {xdrError}
               </div>
             )}
 
@@ -264,10 +312,14 @@ export const ConsolePanel: React.FC<ConsolePanelProps> = ({ currentNetwork, prov
           </div>
         )}
 
-        {/* TAB 4: Contract Interactor */}
+        {/* TAB 4: Contract Simulator */}
         {activeTab === 'interactor' && (
           <div className="space-y-3 font-sans">
             <div className="neo-box p-3 bg-white border-black space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-500">Live Soroban RPC Invocation Simulator</span>
+                <span className="neo-badge bg-blue-100 text-blue-900">{currentNetwork.name}</span>
+              </div>
               <div>
                 <label className="block text-xs font-bold text-black mb-1">Contract ID:</label>
                 <input
@@ -302,14 +354,25 @@ export const ConsolePanel: React.FC<ConsolePanelProps> = ({ currentNetwork, prov
                   className="neo-btn-blue text-xs"
                 >
                   <Play className={`w-3.5 h-3.5 ${invoking ? 'animate-spin' : ''}`} />
-                  <span>{invoking ? 'Simulating...' : 'Simulate Call'}</span>
+                  <span>{invoking ? 'Simulating on RPC...' : 'Simulate on Soroban RPC'}</span>
                 </button>
               </div>
             </div>
 
             {contractResult && (
-              <div className="neo-box p-3 bg-white border-black">
-                <span className="font-mono font-bold text-xs text-black block mb-1">Execution Simulation Result:</span>
+              <div className="neo-box p-3 bg-white border-black space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="font-mono font-bold text-xs text-black">RPC Simulation Result:</span>
+                  {lastSimulationXdr && (
+                    <button
+                      onClick={() => sendToXdrInspector(lastSimulationXdr)}
+                      className="neo-btn text-[11px] py-1 px-2 flex items-center gap-1 bg-yellow-200"
+                    >
+                      <span>Inspect Simulation XDR</span>
+                      <ArrowRight className="w-3 h-3" />
+                    </button>
+                  )}
+                </div>
                 <pre className="bg-slate-900 text-blue-300 p-3 rounded border-2 border-black overflow-x-auto text-[11px] font-mono">
                   {contractResult}
                 </pre>

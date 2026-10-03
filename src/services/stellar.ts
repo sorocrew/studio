@@ -56,6 +56,46 @@ export async function fetchLatestLedgers(network: NetworkConfig, limit = 10): Pr
   }
 }
 
+// Fetch live Soroban contract events directly from Soroban RPC
+export async function fetchLiveSorobanEvents(network: NetworkConfig, limit = 10): Promise<SorobanEvent[]> {
+  try {
+    const rpcServer = new StellarSdk.rpc.Server(network.sorobanRpcUrl);
+    const latestLedger = await rpcServer.getLatestLedger();
+    const startLedger = Math.max(1, latestLedger.sequence - 200);
+
+    const eventsResponse = await rpcServer.getEvents({
+      startLedger,
+      filters: [{ type: 'contract' }],
+      limit,
+    });
+
+    return eventsResponse.events.map((e: any) => {
+      let decodedTopics: string[] = [];
+      try {
+        decodedTopics = e.topic.map((t: string) => {
+          const scVal = StellarSdk.xdr.ScVal.fromXDR(t, 'base64');
+          return scVal.switch().name;
+        });
+      } catch (topicErr) {
+        decodedTopics = e.topic;
+      }
+
+      return {
+        id: e.id,
+        contractId: e.contractId,
+        topics: decodedTopics,
+        data: e.value?.xdr || JSON.stringify(e.value),
+        ledger: e.ledger,
+        timestamp: new Date(e.ledgerClosedAt).toLocaleTimeString(),
+        type: e.type,
+      };
+    });
+  } catch (err) {
+    console.warn(`[Soroban RPC] Unable to fetch events from ${network.name}:`, err);
+    return [];
+  }
+}
+
 // Request Friendbot testnet XLM
 export async function fundAccountWithFriendbot(network: NetworkConfig, publicKey: string): Promise<{ success: boolean; message: string }> {
   if (!network.friendbotUrl) {
@@ -64,7 +104,7 @@ export async function fundAccountWithFriendbot(network: NetworkConfig, publicKey
   try {
     const res = await fetch(`${network.friendbotUrl}?addr=${encodeURIComponent(publicKey)}`);
     if (res.ok) {
-      return { success: true, message: `Successfully funded ${publicKey.slice(0, 8)}... with 10,000 test XLM!` };
+      return { success: true, message: `Successfully funded ${publicKey.slice(0, 8)}... with 10,000 test XLM.` };
     } else {
       const errText = await res.text();
       return { success: false, message: `Friendbot error: ${errText}` };
@@ -83,6 +123,85 @@ export async function fetchAccountBalance(network: NetworkConfig, publicKey: str
     return nativeBalance ? parseFloat(nativeBalance.balance).toLocaleString() + ' XLM' : '0 XLM';
   } catch (err) {
     return '0 XLM (Unfunded)';
+  }
+}
+
+// Real Soroban RPC Simulation and Invocation
+export async function simulateSorobanContract(
+  network: NetworkConfig,
+  contractId: string,
+  functionName: string,
+  args: any[],
+  callerPublicKey?: string
+): Promise<{ success: boolean; data: any; rawXdr?: string }> {
+  try {
+    const rpcServer = new StellarSdk.rpc.Server(network.sorobanRpcUrl);
+    const horizonServer = new StellarSdk.Horizon.Server(network.horizonUrl);
+
+    // Use caller public key or generate a fallback signer
+    const sourceKey = callerPublicKey || StellarSdk.Keypair.random().publicKey();
+
+    let account: StellarSdk.Account;
+    try {
+      account = await horizonServer.loadAccount(sourceKey);
+    } catch (e) {
+      account = new StellarSdk.Account(sourceKey, '0');
+    }
+
+    // Convert parameters to ScVal
+    const scValParams: StellarSdk.xdr.ScVal[] = args.map((arg) => {
+      if (typeof arg === 'string') {
+        if (arg.startsWith('G') && arg.length === 56) {
+          return StellarSdk.nativeToScVal(new StellarSdk.Address(arg));
+        }
+        return StellarSdk.nativeToScVal(arg);
+      }
+      if (typeof arg === 'number' || typeof arg === 'bigint') {
+        return StellarSdk.nativeToScVal(BigInt(arg));
+      }
+      if (typeof arg === 'boolean') {
+        return StellarSdk.nativeToScVal(arg);
+      }
+      return StellarSdk.nativeToScVal(arg);
+    });
+
+    const contract = new StellarSdk.Contract(contractId);
+    const operation = contract.call(functionName, ...scValParams);
+
+    const tx = new StellarSdk.TransactionBuilder(account, {
+      fee: '100000',
+      networkPassphrase: network.networkPassphrase,
+    })
+      .addOperation(operation)
+      .setTimeout(30)
+      .build();
+
+    const simulationResponse = await rpcServer.simulateTransaction(tx);
+    const isSuccess = StellarSdk.rpc.Api.isSimulationSuccess(simulationResponse);
+    const resp: any = simulationResponse;
+
+    return {
+      success: isSuccess,
+      data: {
+        status: isSuccess ? 'SUCCESS' : 'SIMULATION_ERROR',
+        network: network.name,
+        latestLedger: resp.latestLedger,
+        minResourceFee: resp.minResourceFee,
+        cost: resp.cost,
+        results: resp.result || resp.error,
+        transactionData: resp.transactionData ? resp.transactionData.toXDR('base64') : undefined,
+      },
+      rawXdr: resp.transactionData ? resp.transactionData.toXDR('base64') : undefined,
+    };
+  } catch (err: any) {
+    return {
+      success: false,
+      data: {
+        status: 'ERROR',
+        error: err.message || String(err),
+        network: network.name,
+      },
+    };
   }
 }
 

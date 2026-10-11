@@ -36,22 +36,74 @@ export const NETWORKS: Record<NetworkType, NetworkConfig> = {
   },
 };
 
+
+export interface RetryOptions {
+  maxRetries?: number;
+  initialDelayMs?: number;
+  maxDelayMs?: number;
+  backoffFactor?: number;
+}
+
+/**
+ * Resilient request wrapper with exponential backoff and randomized jitter.
+ * Automatically handles HTTP 429 (Rate Limit) and transient network disconnects.
+ */
+export async function withExponentialBackoff<T>(
+  fn: () => Promise<T>,
+  options: RetryOptions = {},
+  tag = 'StellarService'
+): Promise<T> {
+  const maxRetries = options.maxRetries ?? 3;
+  const initialDelay = options.initialDelayMs ?? 1000;
+  const maxDelay = options.maxDelayMs ?? 10000;
+  const factor = options.backoffFactor ?? 2;
+
+  let attempt = 0;
+  while (true) {
+    try {
+      return await fn();
+    } catch (err: any) {
+      attempt++;
+      const status = err?.response?.status || err?.status || err?.code;
+      const isRateLimit = status === 429 || (err?.message && /429|rate\s*limit/i.test(err.message));
+      const isTransient = isRateLimit || status >= 500 || (err?.message && /network|timeout|econnreset|failed to fetch/i.test(err.message));
+
+      if (attempt > maxRetries || !isTransient) {
+        console.warn('[' + tag + '] Request failed after ' + attempt + ' attempt(s):', err?.message || err);
+        throw err;
+      }
+
+      // Exponential backoff: initialDelay * factor^(attempt - 1) + jitter
+      const baseDelay = Math.min(initialDelay * Math.pow(factor, attempt - 1), maxDelay);
+      const jitter = Math.floor(Math.random() * 500);
+      const delay = Math.round(baseDelay + jitter);
+
+      console.warn(
+        '[' + tag + '] ' + (isRateLimit ? 'HTTP 429 Rate limited' : 'Transient network error') + '. Retrying attempt ' + attempt + '/' + maxRetries + ' in ' + delay + 'ms...'
+      );
+      await new Promise((resolve) => setTimeout(resolve, delay));
+    }
+  }
+}
+
 // Fetch latest ledgers from Horizon
 export async function fetchLatestLedgers(network: NetworkConfig, limit = 10): Promise<HorizonLedger[]> {
   try {
-    const server = new StellarSdk.Horizon.Server(network.horizonUrl);
-    const response = await server.ledgers().order('desc').limit(limit).call();
-    return response.records.map((r: any) => ({
-      id: r.id,
-      sequence: r.sequence,
-      hash: r.hash,
-      txCount: r.successful_transaction_count + r.failed_transaction_count,
-      operationCount: r.operation_count,
-      closedAt: new Date(r.closed_at).toLocaleTimeString(),
-      protocolVersion: r.protocol_version,
-    }));
+    return await withExponentialBackoff(async () => {
+      const server = new StellarSdk.Horizon.Server(network.horizonUrl);
+      const response = await server.ledgers().order('desc').limit(limit).call();
+      return response.records.map((r: any) => ({
+        id: r.id,
+        sequence: r.sequence,
+        hash: r.hash,
+        txCount: r.successful_transaction_count + r.failed_transaction_count,
+        operationCount: r.operation_count,
+        closedAt: new Date(r.closed_at).toLocaleTimeString(),
+        protocolVersion: r.protocol_version,
+      }));
+    }, { maxRetries: 3, initialDelayMs: 1000 }, 'Horizon:' + network.name);
   } catch (err) {
-    console.warn(`[Horizon] Unable to fetch ledgers from ${network.name}:`, err);
+    console.warn('[Horizon] Final failure fetching ledgers from ' + network.name + ':', err);
     return [];
   }
 }
@@ -59,42 +111,45 @@ export async function fetchLatestLedgers(network: NetworkConfig, limit = 10): Pr
 // Fetch live Soroban contract events directly from Soroban RPC
 export async function fetchLiveSorobanEvents(network: NetworkConfig, limit = 10): Promise<SorobanEvent[]> {
   try {
-    const rpcServer = new StellarSdk.rpc.Server(network.sorobanRpcUrl);
-    const latestLedger = await rpcServer.getLatestLedger();
-    const startLedger = Math.max(1, latestLedger.sequence - 200);
+    return await withExponentialBackoff(async () => {
+      const rpcServer = new StellarSdk.rpc.Server(network.sorobanRpcUrl);
+      const latestLedger = await rpcServer.getLatestLedger();
+      const startLedger = Math.max(1, latestLedger.sequence - 200);
 
-    const eventsResponse = await rpcServer.getEvents({
-      startLedger,
-      filters: [{ type: 'contract' }],
-      limit,
-    });
+      const eventsResponse = await rpcServer.getEvents({
+        startLedger,
+        filters: [{ type: 'contract' }],
+        limit,
+      });
 
-    return eventsResponse.events.map((e: any) => {
-      let decodedTopics: string[] = [];
-      try {
-        decodedTopics = e.topic.map((t: string) => {
-          const scVal = StellarSdk.xdr.ScVal.fromXDR(t, 'base64');
-          return scVal.switch().name;
-        });
-      } catch (topicErr) {
-        decodedTopics = e.topic;
-      }
+      return eventsResponse.events.map((e: any) => {
+        let decodedTopics: string[] = [];
+        try {
+          decodedTopics = e.topic.map((t: string) => {
+            const scVal = StellarSdk.xdr.ScVal.fromXDR(t, 'base64');
+            return scVal.switch().name;
+          });
+        } catch (topicErr) {
+          decodedTopics = e.topic;
+        }
 
-      return {
-        id: e.id,
-        contractId: e.contractId,
-        topics: decodedTopics,
-        data: e.value?.xdr || JSON.stringify(e.value),
-        ledger: e.ledger,
-        timestamp: new Date(e.ledgerClosedAt).toLocaleTimeString(),
-        type: e.type,
-      };
-    });
+        return {
+          id: e.id,
+          contractId: e.contractId,
+          topics: decodedTopics,
+          data: e.value?.xdr || JSON.stringify(e.value),
+          ledger: e.ledger,
+          timestamp: new Date(e.ledgerClosedAt).toLocaleTimeString(),
+          type: e.type,
+        };
+      });
+    }, { maxRetries: 3, initialDelayMs: 1000 }, 'SorobanRPC:' + network.name);
   } catch (err) {
-    console.warn(`[Soroban RPC] Unable to fetch events from ${network.name}:`, err);
+    console.warn('[Soroban RPC] Final failure fetching events from ' + network.name + ':', err);
     return [];
   }
 }
+
 
 // Request Friendbot testnet XLM
 export async function fundAccountWithFriendbot(network: NetworkConfig, publicKey: string): Promise<{ success: boolean; message: string }> {

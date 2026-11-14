@@ -51,3 +51,28 @@ export interface ProviderLog {
   result?: any;
   error?: string;
 }
+
+export type StorageDurabilityTier = 'instance' | 'persistent' | 'temporary';
+
+export interface ContractStorageEntry {
+  id: string;
+  tier: StorageDurabilityTier;
+  keyLabel: string;
+  keyType: string;
+  valueType: string;
+  decodedValue: any;
+  formattedValue: string;
+  rawXdr?: string;
+  liveUntilLedgerSeq?: number;
+  lastModifiedLedgerSeq?: number;
+}
+
+export interface ContractStorageSnapshot {
+  contractId: string;
+  network: string;
+  latestLedger?: number;
+  executableType?: string;
+  wasmHashHex?: string;
+  entries: ContractStorageEntry[];
+  error?: string;
+}

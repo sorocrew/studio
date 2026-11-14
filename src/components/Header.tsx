@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { NetworkConfig, NetworkType, AccountInfo } from '../types';
 import { NETWORKS, fundAccountWithFriendbot } from '../services/stellar';
-import { Globe, Coins, ShieldCheck, RefreshCw, Key, Plus, ExternalLink, Zap } from 'lucide-react';
+import { SACDeployerModal } from './SACDeployerModal';
+import { Globe, Coins, RefreshCw, Key, Plus, Zap, Rocket } from 'lucide-react';
 
 interface HeaderProps {
   currentNetwork: NetworkConfig;
@@ -26,6 +27,7 @@ export const Header: React.FC<HeaderProps> = ({
 }) => {
   const [funding, setFunding] = useState(false);
   const [fundingNotice, setFundingNotice] = useState<string | null>(null);
+  const [isSACModalOpen, setIsSACModalOpen] = useState(false);
 
   const handleFund = async () => {
     setFunding(true);
@@ -41,7 +43,6 @@ export const Header: React.FC<HeaderProps> = ({
   return (
     <header className="border-b-4 border-black bg-white px-4 py-3 shadow-[0_4px_0_0_#000000] sticky top-0 z-50">
       <div className="flex flex-wrap items-center justify-between gap-4">
-        
         {/* Brand Logo & Title (Neo-Brutalist Black Ops One) */}
         <div className="flex items-center gap-3">
           <div className="bg-blue-600 text-white font-['Black_Ops_One'] text-2xl px-3 py-1 border-2 border-black shadow-[3px_3px_0px_0px_#000000] rounded">
@@ -49,7 +50,9 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
           <div className="hidden sm:flex flex-col">
             <span className="font-['Black_Ops_One'] text-lg tracking-wider text-black">STUDIO</span>
-            <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-slate-500">Soroban Dev Environment</span>
+            <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-slate-500">
+              Soroban Dev Environment
+            </span>
           </div>
         </div>
 
@@ -79,7 +82,7 @@ export const Header: React.FC<HeaderProps> = ({
           })}
         </div>
 
-        {/* Account Switcher & 1-Click Friendbot Faucet */}
+        {/* Account Switcher, 1-Click SAC Deployer & Friendbot Faucet */}
         <div className="flex items-center gap-2">
           {/* Active Account Dropdown */}
           <div className="flex items-center gap-2 bg-white border-2 border-black rounded-lg px-2.5 py-1 shadow-[3px_3px_0px_0px_#000000]">
@@ -98,7 +101,7 @@ export const Header: React.FC<HeaderProps> = ({
                 </option>
               ))}
             </select>
-            
+
             <button
               onClick={onAddAccount}
               title="Generate New Test Keypair"
@@ -112,10 +115,23 @@ export const Header: React.FC<HeaderProps> = ({
           <div className="hidden lg:flex items-center gap-1.5 bg-yellow-300 border-2 border-black px-2.5 py-1 rounded-lg text-xs font-mono font-black shadow-[2px_2px_0px_0px_#000000]">
             <Coins className="w-3.5 h-3.5 text-black" />
             <span>{accountBalance}</span>
-            <button onClick={onRefreshBalance} className="hover:rotate-180 transition-transform p-0.5">
+            <button
+              onClick={onRefreshBalance}
+              className="hover:rotate-180 transition-transform p-0.5"
+            >
               <RefreshCw className="w-3 h-3 text-black" />
             </button>
           </div>
+
+          {/* 1-Click SAC Deployer Trigger Button */}
+          <button
+            onClick={() => setIsSACModalOpen(true)}
+            className="neo-btn text-xs py-1.5 px-3 bg-yellow-300 hover:bg-yellow-400"
+            title="Deploy a Stellar Asset Contract (SAC) on the active network"
+          >
+            <Rocket className="w-3.5 h-3.5 text-black" />
+            <span>Deploy SAC</span>
+          </button>
 
           {/* 1-Click Friendbot Faucet Button */}
           {currentNetwork.friendbotUrl && (
@@ -136,9 +152,21 @@ export const Header: React.FC<HeaderProps> = ({
       {fundingNotice && (
         <div className="mt-2 text-xs font-mono font-bold p-1.5 bg-blue-100 border-2 border-black rounded flex items-center justify-between">
           <span>{fundingNotice}</span>
-          <button onClick={() => setFundingNotice(null)} className="text-black font-black hover:underline">✕ Dismiss</button>
+          <button
+            onClick={() => setFundingNotice(null)}
+            className="text-black font-black hover:underline"
+          >
+            ✕ Dismiss
+          </button>
         </div>
       )}
+
+      <SACDeployerModal
+        isOpen={isSACModalOpen}
+        onClose={() => setIsSACModalOpen(false)}
+        currentNetwork={currentNetwork}
+        activeAccount={activeAccount}
+      />
     </header>
   );
 };

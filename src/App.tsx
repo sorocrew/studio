@@ -1,17 +1,44 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Header } from './components/Header';
 import { BrowserPanel } from './components/BrowserPanel';
 import { ConsolePanel } from './components/ConsolePanel';
 import { ExploreGallery } from './components/ExploreGallery';
+import { ResizeHandle } from './components/ResizeHandle';
 import { NetworkConfig, AccountInfo, ProviderLog } from './types';
 import { NETWORKS, generateTestKeypair, fetchAccountBalance } from './services/stellar';
+
+const SPLIT_STORAGE_KEY = 'sorocrew_studio_split_pct';
+const DEFAULT_SPLIT_PCT = 58.33; // Matches original 7/12 : 5/12 desktop ratio
+const MIN_SPLIT_PCT = 30;
+const MAX_SPLIT_PCT = 70;
+
+function clampSplit(value: number): number {
+  return Math.min(MAX_SPLIT_PCT, Math.max(MIN_SPLIT_PCT, value));
+}
+
+function loadSavedSplit(): number {
+  try {
+    const raw = window.localStorage.getItem(SPLIT_STORAGE_KEY);
+    if (!raw) return DEFAULT_SPLIT_PCT;
+    const parsed = parseFloat(raw);
+    if (Number.isFinite(parsed)) {
+      return clampSplit(parsed);
+    }
+  } catch {
+    // Ignore storage access errors in restricted environments
+  }
+  return DEFAULT_SPLIT_PCT;
+}
 
 export const App: React.FC = () => {
   const [currentNetwork, setCurrentNetwork] = useState<NetworkConfig>(NETWORKS.local);
   const [activeView, setActiveView] = useState<'workspace' | 'explore'>('workspace');
   const [galleryUrl, setGalleryUrl] = useState<string>();
   const [galleryLaunchKey, setGalleryLaunchKey] = useState(0);
-  
+  const [splitPercent, setSplitPercent] = useState<number>(() => loadSavedSplit());
+  const [isDraggingSplit, setIsDraggingSplit] = useState<boolean>(false);
+  const workspaceRef = useRef<HTMLElement | null>(null);
+
   // Default pre-seeded test keypairs
   const [accounts, setAccounts] = useState<AccountInfo[]>([
     {
@@ -28,7 +55,7 @@ export const App: React.FC = () => {
 
   const [activeAccount, setActiveAccount] = useState<AccountInfo>(accounts[0]);
   const [accountBalance, setAccountBalance] = useState<string>('Checking...');
-  const [providerLogs, setProviderLogs] = useState<ProviderLog[]>([
+  const [providerLogs] = useState<ProviderLog[]>([
     {
       id: '1',
       timestamp: new Date().toLocaleTimeString(),
@@ -42,6 +69,54 @@ export const App: React.FC = () => {
       result: accounts[0].publicKey,
     },
   ]);
+
+  // Persist split percentage to localStorage whenever it changes
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(SPLIT_STORAGE_KEY, splitPercent.toFixed(2));
+    } catch {
+      // Ignore storage write errors
+    }
+  }, [splitPercent]);
+
+  // Handle mouse drag for split-pane resizing
+  useEffect(() => {
+    if (!isDraggingSplit) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const container = workspaceRef.current;
+      if (!container) return;
+      const rect = container.getBoundingClientRect();
+      if (rect.width <= 0) return;
+      const relativeX = e.clientX - rect.left;
+      const nextPercent = clampSplit((relativeX / rect.width) * 100);
+      setSplitPercent(nextPercent);
+    };
+
+    const handleMouseUp = () => {
+      setIsDraggingSplit(false);
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isDraggingSplit]);
+
+  const handleDragStart = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDraggingSplit(true);
+  }, []);
+
+  const handleStepResize = useCallback((deltaPercent: number) => {
+    setSplitPercent((prev) => clampSplit(prev + deltaPercent));
+  }, []);
+
+  const handleResetSplit = useCallback(() => {
+    setSplitPercent(DEFAULT_SPLIT_PCT);
+  }, []);
 
   // Refresh balance when network or account changes
   const updateBalance = async () => {
@@ -87,12 +162,29 @@ export const App: React.FC = () => {
       {activeView === 'explore' ? (
         <ExploreGallery onTryProject={(url) => { setGalleryUrl(url); setGalleryLaunchKey((key) => key + 1); setActiveView('workspace'); }} />
       ) : (
-        /* Main Split-Screen Workspace */
-        <main className="flex-1 p-3 grid grid-cols-1 lg:grid-cols-12 gap-3 min-h-[calc(100vh-120px)]">
-          <div className="lg:col-span-7 min-h-[60vh] lg:min-h-0">
+        /* Main Resizable Split-Screen Workspace (stacks vertically on mobile, horizontal split on lg+) */
+        <main
+          ref={workspaceRef}
+          style={{ '--left-panel-width': `${splitPercent}%` } as React.CSSProperties}
+          className={`flex-1 p-3 flex flex-col lg:flex-row gap-3 lg:gap-0 min-h-[calc(100vh-120px)] ${
+            isDraggingSplit ? 'cursor-col-resize select-none' : ''
+          }`}
+        >
+          <div className={`w-full lg:w-[var(--left-panel-width)] min-h-[60vh] lg:min-h-0 shrink-0 ${isDraggingSplit ? 'pointer-events-none' : ''}`}>
             <BrowserPanel currentNetwork={currentNetwork} activeAccount={activeAccount} initialUrl={galleryUrl} launchKey={galleryLaunchKey} />
           </div>
-          <div className="lg:col-span-5 min-h-[60vh] lg:min-h-0">
+
+          <ResizeHandle
+            splitPercent={splitPercent}
+            minPercent={MIN_SPLIT_PCT}
+            maxPercent={MAX_SPLIT_PCT}
+            isDragging={isDraggingSplit}
+            onDragStart={handleDragStart}
+            onStepResize={handleStepResize}
+            onReset={handleResetSplit}
+          />
+
+          <div className={`w-full lg:flex-1 min-w-0 min-h-[60vh] lg:min-h-0 ${isDraggingSplit ? 'pointer-events-none' : ''}`}>
             <ConsolePanel currentNetwork={currentNetwork} providerLogs={providerLogs} />
           </div>
         </main>
